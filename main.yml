@@ -1,0 +1,59 @@
+---
+- name: Install Docker on app servers
+  hosts: app
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Install Docker on Ubuntu
+      when: "'Ubuntu' in ansible_distribution"
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Install Docker on CentOS
+      when: "'CentOS' in ansible_distribution"
+      yum:
+        name: docker
+        state: present
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+
+- name: Install PostgreSQL on database servers
+  hosts: database
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Install PostgreSQL
+      apt:
+        name: postgresql-{{ postgres_version }}
+        state: present
+
+    - name: Create PostgreSQL data directory
+      file:
+        path: "{{ postgres_data_directory }}"
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: '0755'
+
+    - name: Copy PostgreSQL configuration file with data directory
+      template:
+        src: postgresql.conf.j2
+        dest: "/etc/postgresql/{{ postgres_version }}/main/postgresql.conf"
+      notify: Reload PostgreSQL
+    - name: Start PostgreSQL service
+      service:
+        name: postgresql
+        state: started
+
+  handlers:
+    - name: Reload PostgreSQL
+      service:
+        name: postgresql
+        state: reloaded
+
